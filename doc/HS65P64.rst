@@ -1,0 +1,171 @@
+#################################
+HS65P64 Microprocessor Reference
+#################################
+
+Register Reference
+==================
+
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| Mnemonic    | Size        | Friendly Name        | Description                                                                                                                             |
++=============+=============+======================+=========================================================================================================================================+
+| A           | 64-Bits     | Accumulator          | The accumulators. This are the math registers. They store one of two operands or the result. of most arithmetic and logical operations. |
++-------------+-------------+----------------------+                                                                                                                                         |
+| B           | 64-Bits     | Accumulator          |                                                                                                                                         |
++-------------+-------------+----------------------+                                                                                                                                         |
+| C           | 64-Bits     | Accumulator          |                                                                                                                                         |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| X           | 64-Bits     | Index                | The index registers. These can be used to reference memory, to pass data to memory, or as counters for loops.                           |
++-------------+-------------+----------------------+                                                                                                                                         |
+| Y           | 64-Bits     | Index                |                                                                                                                                         |
++-------------+-------------+----------------------+                                                                                                                                         |
+| Z           | 64-Bits     | Index                |                                                                                                                                         |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| R [1]_      | 64-Bits     | General Purpose      | Lorem Ipsum.                                                                                                                            |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| V [2]_ [3]_ | 128-Bits    | SIMD Registers       | Lorem Ipsum.                                                                                                                            |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| SP          | 16-Bits     | Stack Pointer        | The stack pointer, points to the next available (unused) location on the stack.                                                         |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| SB          | 16-Bits     | Stack Base           | The stack pointer, points to the next available (unused) location on the stack.                                                         |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| IR          | 16-Bits     | Instruction Register | Lorem Ipsum.                                                                                                                            |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| PC          | 64-Bits     | Program Counter      | Holds the memory address of the current CPU instruction.                                                                                |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| PP          | 64-Bits     | Program Page         | Holds the memory address of the current CPU instruction.                                                                                |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+| P           | 16-Bits     | Processor Status     | Holds various important flags, results of tests and HS65P64 processing states. See below.                                               |
++-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
+
+.. [1] : Register set of 32 registers. 
+.. [2] : Register set of 16 registers.
+.. [3] : Not yet implemented.
+
+Processor Status Reference
+--------------------------
+
+ - Bit 00: (C) Carry Flag
+ - Bit 01: (Z) Zero Flag
+ - Bit 02: (I) Interrupt Disable Flag
+ - Bit 03: (-) Reserved
+ - Bit 04: (-) Reserved
+ - Bit 05: (-) Reserved
+ - Bit 06: (V) Overflow Flag
+ - Bit 07: (N) Negative Flag
+ - Bit 08: (T) Trap Flag
+ - Bit 09: (-) Reserved
+ - Bit 10: (P) Parity Flag
+ - Bit 11: (-) Reserved
+ - Bit 12: (-) Reserved
+ - Bit 13: (-) Reserved
+ - Bit 14: (-) Reserved
+ - Bit 15: (-) Reserved
+
+Assembler Syntax
+================
+
+Operators
+------------
+
+Low Half (>)
+++++++++++++
+
+Operator used to access the least significant half of the register.
+Example:
+
+.. code-block:: asm
+    
+    mov %a>, %r01>    ; Access the least significant dword of `%a` and `%r01`.
+
+High Half (<)
++++++++++++++
+
+Operator used to access the most significant half of the register.
+
+.. code-block:: asm
+
+    mov %a<, %r01<   ; Access the most significant dword of `%a` and `%r01`.
+
+Size (:)
+++++++++
+
+Operator used to set access size of registers, can be used as a suffix to an instruction or an operand.
+When used in an instruction, it sets the size of every operand. When used in an operand, it can override the size set in its instruction.
+Examples:
+
+.. code-block:: asm
+
+    mov:16 $1000, %a    ; In an instruction: the move operation is performed only
+                        ; with the least significant 16 bits of each operand.
+
+    mov %a<, $1000:32   ; In a register operand: (Here `%a` is 64-bits long,
+                        ; by using only its high half, we have implicitly
+                        ; set its size to 32-bits).
+
+    mov %a<, $1000:16   ; Here, the source operand is longer than the destination,
+                        ; the assembler behaviour is to set `$1000` to `%a:32>`
+                        ; (the lower half of 32-bit `%a`).
+
+Instruction Reference
+=====================
+
+Arithmetic
+----------
+
+ADC ADD SBC SUB
++++++++++++++++
+
+ADC and SBC add to, and subtract from, the accumulator. When the m flag is 0, it is a 16-bit operation, and when the m flag is 1, it is an 8-bit operation.
+
+The formula for ADC is:
+
+    accumulator = accumulator + data + carry 
+
+The formula for SBC can be written several ways; one way is:
+
+    accumulator = accumulator - data - 1 + carry 
+
+In other words, the formula is accumulator = accumulator - data - 1 when the carry (i.e. the c flag) is 0, and accumulator = accumulator - data when the carry is 1.
+
+    - The n flag is 0 when the high bit of the result (bit 15 when the m flag is 0, bit 7 when the m flag is 1) is 0, and the n flag is 1 when the high bit of the result is 1.
+    - The v flag is 0 when there is not a signed arithmetic overflow, and the v flag is 1 when there is a signed arithmetic overflow. For 8-bit signed numbers, $00 to $7F represents 0 to 127, and $80 to $FF represents -128 to -1; an 8-bit arithmetic overflow occurs when the result is outside the range -128 to 127. For 16-bit signed numbers, $0000 to $7FFF represents 0 to 32767, and $8000 to $FFFF represents -32768 to -1; a 16-bit arithmetic overflow occurs when the result is outside the range -32768 to 32767.
+    - The z flag is 0 when the 16-bit (when m flag is 0) or 8-bit (when the m flag is 1) result is nonzero, and the z flag is 1 when the result is zero.
+    - The c flag is 0 when there is not an unsigned carry, and the c flag is 1 when there is an unsigned carry. For 8-bit unsigned numbers, $00 to $FF represents 0 to 255; for addition, an 8-bit carry occurs when the result is greater than 255. For 16-bit unsigned numbers, $0000 to $FFFF represents 0 to 65535; for addition, an 16-bit carry occurs when the result is greater than 65535. For subtraction (8-bit or 16-bit), there is a carry when the accumulator is greater than or equal to the data. 
+
+Example 1: If the accumulator is $0001, the m flag is 0, and the c flag is 1, then after SBC #$2003
+
+    - the accumulator will be $DFFE
+    - the n flag will be 1
+    - the v flag will be 0
+    - the z flag will be 0
+    - the c flag will be 0 
+
+CMP
++++
+
+DEC INC
++++++++
+
+AND EOR OR
+++++++++++
+
+BIT
++++
+
+TRB TSB
++++++++
+
+ASL LSR ROL ROR
++++++++++++++++
+
+BCC BCS BEQ BMI BNE BPL BRA BVC BVS
++++++++++++++++++++++++++++++++++++
+
+JMP CALL SYSCALL
+++++++++++++++++
+
+RTC RETSYS
+++++++++++
+
+BRK COP
++++++++

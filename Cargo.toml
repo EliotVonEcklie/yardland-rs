@@ -1,0 +1,11 @@
+[package]
+name = "yardland"
+version = "0.1.0"
+edition = "2021"
+authors = ["Joseph Hans Díaz González <eliotvonecklie@gmail.com>"]
+license = "MIT"
+
+[dependencies]
+winit = "^0.27"
+egui = "^0.19"
+egui-winit = "^0.19"
