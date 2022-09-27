@@ -34,7 +34,7 @@ Register Reference
 +-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
 | PP          | 64-Bits     | Program Page         | Holds the memory address of the current CPU instruction.                                                                                |
 +-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
-| P           | 16-Bits     | Processor Status     | Holds various important flags, results of tests and HS65P64 processing states. See below.                                               |
+| SR          | 16-Bits     | Status Register      | Holds various important flags, results of tests and HS65P64 processing states. See below.                                               |
 +-------------+-------------+----------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
 
 .. [1] : Register set of 32 registers. 
@@ -54,7 +54,7 @@ Processor Status Reference
  - Bit 07: (N) Negative Flag
  - Bit 08: (T) Trap Flag
  - Bit 09: (-) Reserved
- - Bit 10: (P) Parity Flag
+ - Bit 10: (-) Reserved
  - Bit 11: (-) Reserved
  - Bit 12: (-) Reserved
  - Bit 13: (-) Reserved

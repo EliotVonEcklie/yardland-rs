@@ -7,43 +7,37 @@ pub struct HS65P64 {
 
     // Accumulators
 
-    pub a: u64,
-    pub b: u64,
-    pub c: u64,
+    pub a: (u64, u64),
+    pub b: (u64, u64),
 
-    pub x: u64,
-    pub y: u64,
-    pub z: u64,
+    // Indexes
 
-    pub r: [u64; 10],
+    pub x: u64, // Canonical, i.e only 48 bits.
+    pub y: u64, // Canonical, i.e only 48 bits.
 
-    pub sp: u16,
-    pub sb: u64,
+    pub r: [u64; 16],
 
-    pub pc: u32,
-    //pp: u16,
-    //p: u16
+    pub sp: u64, // Canonical, i.e only 48 bits. Stack Pointer.
+    pub pc: u64, // Canonical, i.e only 48 bits. Program Counter.
+    pub sr: u16,
 }
 
 impl HS65P64 {
     pub fn new() -> Self {
         Self {
-            a: 0,
-            b: 0,
-            c: 0,
+            a: (0, 0),
+            b: (0, 0),
 
             x: 0,
             y: 0,
-            z: 0,
 
-            r: [0; 10],
+            r: [0; 16],
 
-            sp: 0,
-            sb: 0x100u64,
+            sp: 0x100u64,
             
             pc: 0,
-            //pp: 0,
-            //p: 0b0000000000000100
+            sr: 0b0000000000000100, // - - - - - - - - N V M X D I Z C
+                                    // 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0
         }
     }
 
@@ -52,13 +46,12 @@ impl HS65P64 {
             0x00 /* brk */ => {},
             0xea /* nop */ => {},
             0x42 /* test */ => {
-                self.a = (self.pc as u64) << 31;
-                self.b = self.pc as u64;
+                self.a.0 = (self.pc as u64) << 31;
+                self.b.0 = self.pc as u64;
             },
             _ => {},
         }
-
-        if self.pc == 0xFFFFFFFF { self.pc = 0 }
+        
         self.pc += 1;
 
         return;
