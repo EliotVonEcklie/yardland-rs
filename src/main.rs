@@ -8,19 +8,15 @@ use std::{
     time::Instant,
     sync::{
         mpsc,
-        mpsc::{Sender, Receiver},
-        Mutex,
-        Arc
+        mpsc::{Sender, Receiver}
     }
 };
 
-use cpu65p64::addr::PhysAddr;
-use memmap::MemMap;
 use winit::{
     event::{Event, WindowEvent, VirtualKeyCode},
     event_loop::EventLoop,
     window::WindowBuilder,
-    dpi::{LogicalSize, PhysicalSize},
+    dpi::LogicalSize,
 };
 use winit_input_helper::WinitInputHelper;
 use pixels::{Pixels, SurfaceTexture};
@@ -32,6 +28,24 @@ pub const TEST_INSTRUCTIONS: [u16; 3] = [
 ];
 
 fn main() -> ! {
+    // Initialize thread channels
+
+    let (video_tx, video_rx): (Sender<(usize, u8)>, Receiver<(usize, u8)>) = mpsc::channel();
+
+    // Initialize emulation
+
+    let _emulation_thread_handle = thread::Builder::new()
+        .name("emulation".to_string())
+        .spawn(move || {
+            let mut _emu_perf_instant = Instant::now();
+
+            let mut mmap = memmap::MemMap::new();
+
+            for f in 0..(768 * 432 * 4) {
+                mmap.map(0xa0 + f, memmap::MappedFrame::Video(f, video_tx.clone()));
+            }
+        });
+
     // Initialize rendering
 
     let mut input = WinitInputHelper::new();
@@ -47,22 +61,6 @@ fn main() -> ! {
     let window_size = window.inner_size();
     let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
     let mut pixels = Pixels::new(768, 432, surface_texture).expect("Pixels lib could not be initialized.");
-
-    let (video_tx, video_rx): (Sender<(usize, u8)>, Receiver<(usize, u8)>) = mpsc::channel();
-
-    // Initialize emulation
-
-    let emulation_thread_handle = thread::Builder::new()
-    .name("emulation".to_string())
-    .spawn(move || {
-        let mut emu_perf_instant = Instant::now();
-
-        let mut mmap = memmap::MemMap::new();
-
-        for f in 0..(768 * 432 * 4) {
-            mmap.map(0xa0 + f, memmap::MappedFrame::Video(f, video_tx.clone()));
-        }
-    });
 
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_poll();
