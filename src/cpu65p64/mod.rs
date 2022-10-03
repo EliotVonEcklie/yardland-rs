@@ -1,9 +1,12 @@
-//! Emulate the HS65P64.
+//! This module provides 65p64 specific functions and data structures,
+//! and access to various processor registers.
 
 #![warn(dead_code)]
 
+pub mod addr;
+
 #[derive(Debug)]
-pub struct HS65P64 {
+pub struct Cpu65p64 {
 
     // Accumulators
 
@@ -22,7 +25,7 @@ pub struct HS65P64 {
     pub sr: u16,
 }
 
-impl HS65P64 {
+impl Cpu65p64 {
     pub fn new() -> Self {
         Self {
             a: (0, 0),
@@ -46,8 +49,8 @@ impl HS65P64 {
             0x00 /* brk */ => {},
             0xea /* nop */ => {},
             0x42 /* test */ => {
-                self.a.0 = (self.pc as u64) << 31;
-                self.b.0 = self.pc as u64;
+                self.a.0 = self.pc << 31;
+                self.b.0 = self.pc;
             },
             _ => {},
         }

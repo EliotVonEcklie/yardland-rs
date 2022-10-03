@@ -1,17 +1,26 @@
-pub mod cpu;
+#![feature(result_option_inspect)]
 
-use cpu::HS65P64;
+pub mod cpu65p64;
+pub mod memmap;
 
 use std::{
     thread,
-    sync::{Arc, Mutex}
+    time::Instant,
+    sync::{
+        mpsc,
+        mpsc::{Sender, Receiver},
+        Mutex,
+        Arc
+    }
 };
-use lazy_static::lazy_static;
 
+use cpu65p64::addr::PhysAddr;
+use memmap::MemMap;
 use winit::{
     event::{Event, WindowEvent, VirtualKeyCode},
     event_loop::EventLoop,
     window::WindowBuilder,
+    dpi::{LogicalSize, PhysicalSize},
 };
 use winit_input_helper::WinitInputHelper;
 use pixels::{Pixels, SurfaceTexture};
@@ -22,44 +31,7 @@ pub const TEST_INSTRUCTIONS: [u16; 3] = [
     0x42, // test
 ];
 
-lazy_static! {
-    pub static ref MEMORY_BUFFER: Arc<Mutex<[u8; 1024]>> = Arc::new(Mutex::new([0; 1024]));
-}
-
-fn render(frame: &mut [u8]) {
-    for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-        let x = (i % 800 as usize) as i16;
-        let y = (i / 800 as usize) as i16;
-
-        let inside = x >= 10 && x < 110
-            && y > 20 && y < 120;
-
-        let rgba = if inside {
-            [0x5e, 0x99, 0x39, 0xff]
-        } else {
-            [0x48, 0xb2, 0xe8, 0xff]
-        };
-
-        pixel.copy_from_slice(&rgba);
-    }
-}
-
 fn main() -> ! {
-
-    // Initialize emulation
-
-    let _emulation_thread_handle = thread::Builder::new()
-        .name("emulation".to_string())
-        .spawn(|| {
-            let mut core = HS65P64::new();
-            { print!("{:?}", MEMORY_BUFFER.lock().unwrap()); }
-            loop {
-                core.step(0x42)
-            }
-        });
-
-    { MEMORY_BUFFER.lock().unwrap()[0] = 0x42; }
-
     // Initialize rendering
 
     let mut input = WinitInputHelper::new();
@@ -67,25 +39,50 @@ fn main() -> ! {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Yardland")
-        //.with_min_inner_size(LogicalSize {width: 800, height: 600})
+        .with_inner_size(LogicalSize::new(1366, 768))
+        .with_transparent(true)
         .build(&event_loop)
         .expect("Window could not be built.");
 
     let window_size = window.inner_size();
     let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-    let mut pixels = Pixels::new(800, 600, surface_texture).expect("Pixels lib could not be initialized.");
+    let mut pixels = Pixels::new(768, 432, surface_texture).expect("Pixels lib could not be initialized.");
+
+    let (video_tx, video_rx): (Sender<(usize, u8)>, Receiver<(usize, u8)>) = mpsc::channel();
+
+    // Initialize emulation
+
+    let emulation_thread_handle = thread::Builder::new()
+    .name("emulation".to_string())
+    .spawn(move || {
+        let mut emu_perf_instant = Instant::now();
+
+        let mut mmap = memmap::MemMap::new();
+
+        for f in 0..(768 * 432 * 4) {
+            mmap.map(0xa0 + f, memmap::MappedFrame::Video(f, video_tx.clone()));
+        }
+    });
 
     event_loop.run(move |event, _, control_flow| {
-        //control_flow.set_poll();
+        control_flow.set_poll();
 
         if input.update(&event) {
-            if input.key_released(VirtualKeyCode::Escape) || input.quit() {
+            if input.quit() {
                 control_flow.set_exit()
+            }
+            if input.key_released(VirtualKeyCode::F11) {
+                window.set_inner_size(LogicalSize::new(768, 432))
+            }
+        }
+
+        if let Event::MainEventsCleared = event {
+            for (index, data) in video_rx.try_iter() {
+                pixels.get_frame()[index] = data
             }
         }
 
         if let Event::RedrawRequested(_) = event {
-            render(pixels.get_frame());
             if pixels.render().is_err() {
                 control_flow.set_exit()
             }
